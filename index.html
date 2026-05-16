@@ -115,7 +115,15 @@
         <input type="range" id="gr" min="0" max="100" step="1" value="0">
         <span class="val" id="grVal">Off</span>
       </div>
-      <div class="hint">Coarse analog paper grain on the border only &mdash; like the photo sits on textured stock. Your photo is untouched. Try 35&ndash;60.</div>
+      <div class="hint">Coarse analog paper grain on the border only &mdash; your photo is untouched. Delicate at low values, heavy near 100. Try 45&ndash;75.</div>
+    </div>
+    <div class="grp">
+      <label>Photo shadow (onto border)</label>
+      <div class="row">
+        <input type="range" id="sh" min="0" max="100" step="1" value="0">
+        <span class="val" id="shVal">Off</span>
+      </div>
+      <div class="hint">Soft shadow as if the print rests on the paper. Subtle at low values; needs some border width to show.</div>
     </div>
     <div class="grp">
       <label>Photo-edge guide (preview only)</label>
@@ -136,7 +144,7 @@
   const $ = id => document.getElementById(id);
   const drop=$('drop'), prev=$('preview'), fileInput=$('file');
   let img=null, name='photo', shape='auto', res='1080', color='#FFFFFF',
-      borderPct=6, grain=0, guide=true, peek=false, lastLayout=null;
+      borderPct=6, grain=0, shadow=0, guide=true, peek=false, lastLayout=null;
 
   // browser canvas safety caps (keeps iPhone from silently failing -> "colour slab" bug)
   const MAX_SIDE = 8192, MAX_AREA = 24000000;
@@ -185,6 +193,8 @@
   $('bd').oninput=e=>{ borderPct=parseFloat(e.target.value); $('bdVal').textContent=borderPct.toFixed(1)+'%'; requestRender(); };
   $('gr').oninput=e=>{ grain=parseInt(e.target.value,10);
     $('grVal').textContent = grain===0 ? 'Off' : grain+'%'; requestRender(); };
+  $('sh').oninput=e=>{ shadow=parseInt(e.target.value,10);
+    $('shVal').textContent = shadow===0 ? 'Off' : shadow+'%'; requestRender(); };
   $('reset').onclick=()=>{ img=null; prev.style.display='none'; drop.style.display='flex';
     $('save').disabled=true; $('out').textContent='Load a photo to begin.'; fileInput.value=''; };
 
@@ -286,7 +296,7 @@
       const tile=noise();
       const step=Math.round(512*Math.max(1, Math.min(6, Math.min(W,H)/1100)));
       ctx.save();
-      ctx.globalAlpha = grain/100*0.22;          // clearly visible on white AND black
+      ctx.globalAlpha = 0.40*Math.pow(grain/100, 1.25);  // eased: delicate low -> intense at 100
       for(let yy=0; yy<H; yy+=step)
         for(let xx=0; xx<W; xx+=step)
           ctx.drawImage(tile, xx, yy, step, step);
@@ -298,7 +308,15 @@
     const sc=Math.min(availW/img.width, availH/img.height);
     const pw=Math.max(1,Math.round(img.width*sc)), ph=Math.max(1,Math.round(img.height*sc));
     const px=Math.round((W-pw)/2), py=Math.round((H-ph)/2);
+    ctx.save();
+    if(shadow>0){
+      const s=shadow/100, m=Math.min(W,H);
+      ctx.shadowColor=`rgba(0,0,0,${(0.06+s*0.34).toFixed(3)})`;
+      ctx.shadowBlur=Math.min(90, m*0.035*s)+1;
+      ctx.shadowOffsetY=Math.min(28, m*0.012*s);
+    }
     drawHQ(ctx,img,px,py,pw,ph);
+    ctx.restore();
     lastLayout={W,H,b,px,py,pw,ph};
     return lastLayout;
   }
@@ -345,6 +363,7 @@
                    (L.W*L.H>=MAX_AREA-1);
     $('out').innerHTML = `Output: <b>${L.W}&times;${L.H}px</b> &nbsp;|&nbsp; PNG (lossless)`
       + ` &nbsp;|&nbsp; border ${L.b}px` + (grain>0?` &nbsp;|&nbsp; grain ${grain}%`:``)
+      + (shadow>0?` &nbsp;|&nbsp; shadow ${shadow}%`:``)
       + (capped?` <span style="color:#e0b870">(capped to device limit — still well above Instagram)</span>`:``);
     $('bdPx').textContent = `= ${L.b}px each side`
       + (guide?` · dashed line = photo edge (not exported)`:``);
