@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IG Framer">
+<meta name="theme-color" content="#1b1d21">
+<title>Instagram Framer</title>
+<style>
+  :root { --bg:#1b1d21; --panel:#26292e; --line:#3a3e45; --txt:#e8e8ea; --muted:#9aa0a8; --accent:#5b8def; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header span { color:var(--muted); font-size:12px; }
+  .wrap { display:flex; gap:0; height:calc(100vh - 50px); }
+  .stage { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; overflow:auto; }
+  #drop { width:100%; height:100%; border:2px dashed var(--line); border-radius:12px; display:flex; flex-direction:column;
+          align-items:center; justify-content:center; color:var(--muted); text-align:center; cursor:pointer; transition:.15s; }
+  #drop.hot { border-color:var(--accent); color:var(--txt); background:#23262b; }
+  #drop strong { color:var(--txt); font-size:15px; }
+  #preview { max-width:100%; max-height:100%; box-shadow:0 6px 30px rgba(0,0,0,.5); display:none; }
+  .panel { width:300px; background:var(--panel); border-left:1px solid var(--line); padding:18px; overflow:auto; }
+  .grp { margin-bottom:20px; }
+  .grp label { display:block; font-size:12px; color:var(--muted); margin-bottom:7px; text-transform:uppercase; letter-spacing:.04em; }
+  .seg { display:flex; flex-wrap:wrap; gap:6px; }
+  .seg button { flex:1; min-width:64px; background:#2f333a; color:var(--txt); border:1px solid var(--line);
+                 padding:8px 6px; border-radius:7px; font-size:12px; cursor:pointer; }
+  .seg button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .row { display:flex; align-items:center; gap:10px; }
+  input[type=range] { flex:1; accent-color:var(--accent); }
+  input[type=color] { width:42px; height:32px; border:1px solid var(--line); border-radius:6px; background:none; padding:2px; cursor:pointer; }
+  input[type=text] { width:88px; background:#2f333a; border:1px solid var(--line); color:var(--txt);
+                      border-radius:6px; padding:7px; font-size:13px; }
+  .val { font-size:13px; color:var(--txt); min-width:54px; text-align:right; font-variant-numeric:tabular-nums; }
+  .swatch { width:26px; height:26px; border-radius:5px; border:1px solid var(--line); cursor:pointer; }
+  .out { font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.5; }
+  .out b { color:var(--txt); }
+  button.go { width:100%; background:var(--accent); color:#fff; border:0; padding:12px; border-radius:8px;
+              font-size:14px; font-weight:600; cursor:pointer; }
+  button.go:disabled { opacity:.4; cursor:default; }
+  button.ghost { width:100%; background:none; color:var(--muted); border:1px solid var(--line);
+                 padding:9px; border-radius:8px; font-size:12px; cursor:pointer; margin-top:8px; }
+  .hint { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5; }
+  @media (max-width:760px){
+    .wrap{ flex-direction:column; height:auto; }
+    .stage{ padding:14px; min-height:46vh; }
+    .panel{ width:100%; border-left:0; border-top:1px solid var(--line); }
+    header{ padding:12px 14px; }
+    header span{ display:none; }
+    .seg button{ padding:12px 6px; }
+    button.go{ padding:15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Instagram Framer</h1>
+  <span>any photo &rarr; bordered, Instagram-sized, lossless PNG &mdash; 100% offline</span>
+</header>
+<div class="wrap">
+  <div class="stage">
+    <div id="drop">
+      <strong>Drop a photo here</strong>
+      <div style="margin-top:6px">or click to choose &mdash; any size (6000&times;4000, 16:9, anything)</div>
+    </div>
+    <canvas id="preview"></canvas>
+  </div>
+  <div class="panel">
+    <div class="grp">
+      <label>Instagram shape</label>
+      <div class="seg" id="shape">
+        <button data-s="auto" class="on">Auto</button>
+        <button data-s="p">4:5 Portrait</button>
+        <button data-s="sq">1:1 Square</button>
+        <button data-s="l">1.91:1 Land</button>
+      </div>
+    </div>
+    <div class="grp">
+      <label>Output resolution</label>
+      <div class="seg" id="res">
+        <button data-r="1080" class="on">1080 (standard)</button>
+        <button data-r="2160">2160 (2&times;)</button>
+        <button data-r="orig">Original (no downscale)</button>
+      </div>
+      <div class="hint" id="resHint">1080-wide is Instagram's display size and the recommended choice.</div>
+    </div>
+    <div class="grp">
+      <label>Border colour</label>
+      <div class="row">
+        <input type="color" id="col" value="#ffffff">
+        <input type="text" id="colTxt" value="#FFFFFF" spellcheck="false">
+        <div class="swatch" style="background:#fff" data-c="#FFFFFF" title="white"></div>
+        <div class="swatch" style="background:#000" data-c="#000000" title="black"></div>
+      </div>
+    </div>
+    <div class="grp">
+      <label>Border thickness</label>
+      <div class="row">
+        <input type="range" id="bd" min="0" max="25" step="0.5" value="6">
+        <span class="val" id="bdVal">6.0%</span>
+      </div>
+      <div class="hint" id="bdPx"></div>
+    </div>
+    <div class="out" id="out">Load a photo to begin.</div>
+    <button class="go" id="save" disabled>Export lossless PNG</button>
+    <button class="ghost" id="reset">Load a different photo</button>
+  </div>
+</div>
+<input type="file" id="file" accept="image/*" hidden>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const drop=$('drop'), prev=$('preview'), fileInput=$('file');
+  let img=null, name='photo', shape='auto', res='1080', color='#FFFFFF', borderPct=6;
+
+  // ---- file loading (EXIF orientation respected) ----
+  async function load(file){
+    name = (file.name||'photo').replace(/\.[^.]+$/,'');
+    let bmp;
+    try { bmp = await createImageBitmap(file, { imageOrientation:'from-image' }); }
+    catch { bmp = await new Promise((ok,err)=>{ const i=new Image();
+      i.onload=()=>ok(i); i.onerror=err; i.src=URL.createObjectURL(file); }); }
+    img = bmp;
+    drop.style.display='none'; prev.style.display='block';
+    $('save').disabled=false;
+    render();
+  }
+  drop.onclick=()=>fileInput.click();
+  fileInput.onchange=e=>{ if(e.target.files[0]) load(e.target.files[0]); };
+  ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+  ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+  drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) load(f); });
+  document.body.addEventListener('dragover',e=>e.preventDefault());
+  document.body.addEventListener('drop',e=>{ e.preventDefault();
+    if(!img && e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+
+  // ---- controls ----
+  function pickSeg(wrapId, attr, set){
+    $(wrapId).addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      [...e.currentTarget.children].forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); set(b.dataset[attr]); render();
+    });
+  }
+  pickSeg('shape','s',v=>shape=v);
+  pickSeg('res','r',v=>{ res=v;
+    $('resHint').textContent = v==='orig'
+      ? 'No downscaling at all — large PNG; Instagram will resize on upload.'
+      : v==='2160' ? '2× oversampling — extra-crisp; Instagram downsizes to 1080.'
+      : "1080-wide is Instagram's display size and the recommended choice."; });
+  function setColor(hex){ hex=hex.toUpperCase(); color=hex; $('col').value=hex; $('colTxt').value=hex; render(); }
+  $('col').oninput=e=>setColor(e.target.value);
+  $('colTxt').onchange=e=>{ const v=e.target.value.trim();
+    if(/^#?[0-9a-fA-F]{6}$/.test(v)) setColor(v[0]==='#'?v:'#'+v); else setColor(color); };
+  document.querySelectorAll('.swatch').forEach(s=>s.onclick=()=>setColor(s.dataset.c));
+  $('bd').oninput=e=>{ borderPct=parseFloat(e.target.value); $('bdVal').textContent=borderPct.toFixed(1)+'%'; render(); };
+  $('reset').onclick=()=>{ img=null; prev.style.display='none'; drop.style.display='flex';
+    $('save').disabled=true; $('out').textContent='Load a photo to begin.'; fileInput.value=''; };
+
+  // ---- core: canvas size from photo + chosen shape ----
+  function ratio(){ // returns W/H of the Instagram canvas
+    let s=shape;
+    if(s==='auto'){ const r=img.width/img.height;
+      s = r>1.05 ? 'l' : (r<0.95 ? 'p' : 'sq'); }
+    return s==='p' ? 4/5 : s==='l' ? 1.91 : s==='sq' ? 1 : 4/5;
+  }
+  function canvasSize(){
+    const R=ratio();                       // W/H
+    if(res==='orig'){
+      // smallest canvas (in chosen ratio) that holds the photo at 100% inside the border
+      const f=borderPct/100;               // inset fraction per side of the SHORT side
+      // try portrait/landscape generically: content = canvas minus 2*border(shortSide)
+      // iterate: pick canvas so photo fits without scaling down
+      let W = img.width, H = img.height;
+      // grow canvas to ratio R while ensuring content area >= photo
+      for(let i=0;i<40;i++){
+        let cw, ch;
+        if(R>=1){ ch = Math.max(H, W/R); cw = ch*R; }
+        else    { cw = Math.max(W, H*R); ch = cw/R; }
+        const b = f*Math.min(cw,ch);
+        const availW = cw-2*b, availH = ch-2*b;
+        if(availW>=W-0.5 && availH>=H-0.5){ return [Math.round(cw),Math.round(ch)]; }
+        W*=1.08; H*=1.08;
+      }
+      // fallback
+      const ch=Math.max(img.height,img.width/R); return [Math.round(ch*R),Math.round(ch)];
+    }
+    const base = res==='2160'?2160:1080;
+    return R>=1 ? [base, Math.round(base/R)] : [Math.round(base*R), base];
+  }
+
+  // high-quality (stepped) downscale draw
+  function drawHQ(ctx, src, dx,dy,dw,dh){
+    let sw=src.width, sh=src.height, cur=src;
+    while(sw>dw*2 && sh>dh*2){
+      const t=document.createElement('canvas');
+      sw=Math.round(sw/2); sh=Math.round(sh/2);
+      t.width=sw; t.height=sh;
+      const tc=t.getContext('2d');
+      tc.imageSmoothingEnabled=true; tc.imageSmoothingQuality='high';
+      tc.drawImage(cur,0,0,sw,sh); cur=t;
+    }
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(cur,dx,dy,dw,dh);
+  }
+
+  let exportCanvas=document.createElement('canvas');
+  function compose(){
+    const [W,H]=canvasSize();
+    exportCanvas.width=W; exportCanvas.height=H;
+    const ctx=exportCanvas.getContext('2d');
+    ctx.fillStyle=color; ctx.fillRect(0,0,W,H);
+    const b=Math.round(borderPct/100*Math.min(W,H));
+    const availW=W-2*b, availH=H-2*b;
+    const sc=Math.min(availW/img.width, availH/img.height);
+    const pw=Math.round(img.width*sc), ph=Math.round(img.height*sc);
+    const px=Math.round((W-pw)/2), py=Math.round((H-ph)/2);
+    drawHQ(ctx,img,px,py,pw,ph);
+    return {W,H,b};
+  }
+  function render(){
+    if(!img) return;
+    const {W,H,b}=compose();
+    // fit preview to screen
+    const maxW=prev.parentElement.clientWidth-48, maxH=prev.parentElement.clientHeight-48;
+    const k=Math.min(maxW/W, maxH/H, 1);
+    prev.width=Math.round(W*k); prev.height=Math.round(H*k);
+    const pc=prev.getContext('2d');
+    pc.imageSmoothingEnabled=true; pc.imageSmoothingQuality='high';
+    pc.drawImage(exportCanvas,0,0,prev.width,prev.height);
+    $('out').innerHTML = `Output: <b>${W}&times;${H}px</b> &nbsp;|&nbsp; PNG (lossless) &nbsp;|&nbsp; border ${b}px`;
+    $('bdPx').textContent = `= ${b}px on each side at this resolution`;
+  }
+  window.addEventListener('resize',()=>{ if(img) render(); });
+
+  const canShareFiles = (() => {
+    try { return !!(navigator.canShare &&
+      navigator.canShare({ files:[new File([new Blob()],'x.png',{type:'image/png'})] })); }
+    catch { return false; }
+  })();
+  if (canShareFiles) $('save').textContent = 'Save to Photos / Share';
+
+  $('save').onclick=()=>{
+    compose();
+    exportCanvas.toBlob(async blob=>{
+      const fname=`${name}_ig_${exportCanvas.width}x${exportCanvas.height}.png`;
+      if (canShareFiles) {
+        try { await navigator.share({ files:[new File([blob],fname,{type:'image/png'})], title:fname }); return; }
+        catch(e){ if (e && e.name==='AbortError') return; }
+      }
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=fname;
+      a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    }, 'image/png');
+  };
+})();
+</script>
+</body>
+</html>
