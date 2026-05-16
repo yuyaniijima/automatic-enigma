@@ -48,9 +48,11 @@
   button.ghost:active { background:#2f333a; color:var(--txt); }
   .hint { font-size:11px; color:var(--muted); margin-top:6px; line-height:1.5; }
   @media (max-width:760px){
-    .wrap{ flex-direction:column; height:auto; }
-    .stage{ padding:14px; min-height:46vh; }
-    .panel{ width:100%; border-left:0; border-top:1px solid var(--line); }
+    /* preview stays put at top; ONLY the controls scroll */
+    .wrap{ flex-direction:column; height:calc(100vh - 49px); height:calc(100dvh - 49px); }
+    .stage{ flex:0 0 44vh; flex:0 0 44dvh; min-height:0; padding:12px; overflow:hidden; }
+    .panel{ width:100%; flex:1 1 auto; min-height:0; border-left:0; border-top:1px solid var(--line);
+            -webkit-overflow-scrolling:touch; }
     header{ padding:12px 14px; }
     header span{ display:none; }
     .seg button{ padding:12px 6px; }
@@ -115,6 +117,13 @@
       </div>
       <div class="hint">Adds Fuji-style grain to the border only &mdash; your photo is left untouched. Try 25&ndash;45.</div>
     </div>
+    <div class="grp">
+      <label>Photo-edge guide (preview only)</label>
+      <div class="seg" id="guide">
+        <button data-g="1" class="on">On</button>
+        <button data-g="0">Off</button>
+      </div>
+    </div>
     <div class="out" id="out">Load a photo to begin.</div>
     <button class="go" id="save" disabled>Export lossless PNG</button>
     <button class="ghost" id="peek">Peek photo &mdash; press &amp; hold</button>
@@ -127,7 +136,7 @@
   const $ = id => document.getElementById(id);
   const drop=$('drop'), prev=$('preview'), fileInput=$('file');
   let img=null, name='photo', shape='auto', res='1080', color='#FFFFFF',
-      borderPct=6, grain=0, peek=false, lastLayout=null;
+      borderPct=6, grain=0, guide=true, peek=false, lastLayout=null;
 
   // browser canvas safety caps (keeps iPhone from silently failing -> "colour slab" bug)
   const MAX_SIDE = 8192, MAX_AREA = 24000000;
@@ -167,6 +176,7 @@
       ? 'Largest your device safely allows — far beyond Instagram; it resizes on upload.'
       : v==='2160' ? '2× oversampling — extra-crisp; Instagram downsizes to 1080.'
       : "1080-wide is Instagram's display size and the recommended choice."; });
+  pickSeg('guide','g',v=>guide=(v==='1'));
   function setColor(hex){ hex=hex.toUpperCase(); color=hex; $('col').value=hex; $('colTxt').value=hex; requestRender(); }
   $('col').oninput=e=>setColor(e.target.value);
   $('colTxt').onchange=e=>{ const v=e.target.value.trim();
@@ -298,19 +308,22 @@
 
     // dashed photo-edge guide (PREVIEW ONLY — never exported) so the photo
     // boundary is visible even when the border colour matches the photo
-    const rx=L.px*k, ry=L.py*k, rw=L.pw*k, rh=L.ph*k;
-    pc.save(); pc.lineWidth=1; pc.setLineDash([6,4]);
-    pc.strokeStyle='rgba(0,0,0,.85)';  pc.strokeRect(rx+.5,ry+.5,rw-1,rh-1);
-    pc.lineDashOffset=6;
-    pc.strokeStyle='rgba(255,255,255,.9)'; pc.strokeRect(rx+.5,ry+.5,rw-1,rh-1);
-    pc.restore();
+    if(guide){
+      const rx=L.px*k, ry=L.py*k, rw=L.pw*k, rh=L.ph*k;
+      pc.save(); pc.lineWidth=1; pc.setLineDash([6,4]);
+      pc.strokeStyle='rgba(0,0,0,.85)';  pc.strokeRect(rx+.5,ry+.5,rw-1,rh-1);
+      pc.lineDashOffset=6;
+      pc.strokeStyle='rgba(255,255,255,.9)'; pc.strokeRect(rx+.5,ry+.5,rw-1,rh-1);
+      pc.restore();
+    }
 
     const capped = (res==='orig' && Math.max(L.W,L.H)>=MAX_SIDE-1) ||
                    (L.W*L.H>=MAX_AREA-1);
     $('out').innerHTML = `Output: <b>${L.W}&times;${L.H}px</b> &nbsp;|&nbsp; PNG (lossless)`
       + ` &nbsp;|&nbsp; border ${L.b}px` + (grain>0?` &nbsp;|&nbsp; grain ${grain}%`:``)
       + (capped?` <span style="color:#e0b870">(capped to device limit — still well above Instagram)</span>`:``);
-    $('bdPx').textContent = `= ${L.b}px each side · dashed line = photo edge (not exported)`;
+    $('bdPx').textContent = `= ${L.b}px each side`
+      + (guide?` · dashed line = photo edge (not exported)`:``);
   }
 
   // coalesce all updates into one paint per frame (kills the slider-churn bug)
