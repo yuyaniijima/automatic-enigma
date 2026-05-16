@@ -241,12 +241,12 @@
     ctx.drawImage(cur,dx,dy,dw,dh);
   }
 
-  // cached analog "coarse paper" texture: tileable fractal (fBm) mottle
-  // for the paper tooth + a soft sparkle on top — not flat digital static
+  // cached analog paper texture: domain-warped fBm (organic, uneven mottle)
+  // + a macro blotch layer, with a fine FILM-GRAIN sparkle kept on top.
   let noiseTile=null;
   function noise(){
     if(noiseTile) return noiseTile;
-    const N=512, c=document.createElement('canvas'); c.width=c.height=N;
+    const N=448, c=document.createElement('canvas'); c.width=c.height=N;
     const x=c.getContext('2d'), id=x.createImageData(N,N), d=id.data;
     const h=(ix,iy,p)=>{ ix=((ix%p)+p)%p; iy=((iy%p)+p)%p;   // periodic -> seamless tile
       let n=ix*374761393+iy*668265263; n=(n^(n>>13))*1274126177; n=n^(n>>16);
@@ -256,11 +256,17 @@
       tx=sm(gx-x0),ty=sm(gy-y0),
       a=h(x0,y0,p)+(h(x0+1,y0,p)-h(x0,y0,p))*tx,
       b=h(x0,y0+1,p)+(h(x0+1,y0+1,p)-h(x0,y0+1,p))*tx; return a+(b-a)*ty; };
+    const fbm=(fx,fy)=>0.50*vn(fx,fy,12)+0.27*vn(fx,fy,32)+0.15*vn(fx,fy,80)+0.08*vn(fx,fy,180);
     for(let y=0;y<N;y++) for(let xp=0;xp<N;xp++){
       const fx=xp/N, fy=y/N;
-      let v=(0.50*vn(fx,fy,8)+0.28*vn(fx,fy,24)+0.16*vn(fx,fy,64)+0.09*vn(fx,fy,160))/1.03;
-      const sp=((Math.random()+Math.random()+Math.random())/3-0.5); // soft Gaussian-ish
-      let l=128+(v-0.5)*156+sp*40; l=l<0?0:l>255?255:l;
+      // domain warp -> organic flow, breaks the regular lattice feel
+      const wx=vn(fx,fy,6)-0.5, wy=vn(fx+0.37,fy+0.19,6)-0.5;
+      const ux=fx+0.25*wx, uy=fy+0.25*wy;
+      // big soft blotches (uneven paper stock) mixed with warped tooth
+      let v=0.55*fbm(ux,uy)+0.45*vn(ux,uy,3);
+      v+=(v-0.5)*0.6*(1-Math.abs(v-0.5)*2);                 // soft contrast -> less uniform
+      const sp=((Math.random()+Math.random()+Math.random())/3-0.5); // fine film grain (kept)
+      let l=128+(v-0.5)*172+sp*52; l=l<0?0:l>255?255:l;
       const i=(y*N+xp)*4; d[i]=d[i+1]=d[i+2]=l; d[i+3]=255;
     }
     x.putImageData(id,0,0); noiseTile=c; return c;
