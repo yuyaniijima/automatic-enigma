@@ -110,12 +110,12 @@
       <div class="hint" id="bdPx"></div>
     </div>
     <div class="grp">
-      <label>Film grain (border)</label>
+      <label>Paper texture (border)</label>
       <div class="row">
         <input type="range" id="gr" min="0" max="100" step="1" value="0">
         <span class="val" id="grVal">Off</span>
       </div>
-      <div class="hint">Adds Fuji-style grain to the border only &mdash; your photo is left untouched. Try 25&ndash;45.</div>
+      <div class="hint">Coarse analog paper grain on the border only &mdash; like the photo sits on textured stock. Your photo is untouched. Try 35&ndash;60.</div>
     </div>
     <div class="grp">
       <label>Photo-edge guide (preview only)</label>
@@ -241,13 +241,28 @@
     ctx.drawImage(cur,dx,dy,dw,dh);
   }
 
-  // cached monochrome film-grain tile
+  // cached analog "coarse paper" texture: tileable fractal (fBm) mottle
+  // for the paper tooth + a soft sparkle on top — not flat digital static
   let noiseTile=null;
   function noise(){
     if(noiseTile) return noiseTile;
-    const N=256, c=document.createElement('canvas'); c.width=c.height=N;
+    const N=512, c=document.createElement('canvas'); c.width=c.height=N;
     const x=c.getContext('2d'), id=x.createImageData(N,N), d=id.data;
-    for(let i=0;i<d.length;i+=4){ const v=(Math.random()*255)|0; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    const h=(ix,iy,p)=>{ ix=((ix%p)+p)%p; iy=((iy%p)+p)%p;   // periodic -> seamless tile
+      let n=ix*374761393+iy*668265263; n=(n^(n>>13))*1274126177; n=n^(n>>16);
+      return ((n>>>0)%100000)/100000; };
+    const sm=t=>t*t*(3-2*t);
+    const vn=(fx,fy,p)=>{ const gx=fx*p,gy=fy*p,x0=Math.floor(gx),y0=Math.floor(gy),
+      tx=sm(gx-x0),ty=sm(gy-y0),
+      a=h(x0,y0,p)+(h(x0+1,y0,p)-h(x0,y0,p))*tx,
+      b=h(x0,y0+1,p)+(h(x0+1,y0+1,p)-h(x0,y0+1,p))*tx; return a+(b-a)*ty; };
+    for(let y=0;y<N;y++) for(let xp=0;xp<N;xp++){
+      const fx=xp/N, fy=y/N;
+      let v=(0.50*vn(fx,fy,8)+0.28*vn(fx,fy,24)+0.16*vn(fx,fy,64)+0.09*vn(fx,fy,160))/1.03;
+      const sp=((Math.random()+Math.random()+Math.random())/3-0.5); // soft Gaussian-ish
+      let l=128+(v-0.5)*156+sp*40; l=l<0?0:l>255?255:l;
+      const i=(y*N+xp)*4; d[i]=d[i+1]=d[i+2]=l; d[i+3]=255;
+    }
     x.putImageData(id,0,0); noiseTile=c; return c;
   }
 
@@ -261,10 +276,10 @@
     // grain on the flat colour BEFORE the photo -> stays on the border only
     if(grain>0){
       const pat=ctx.createPattern(noise(),'repeat');
-      const gs=Math.max(1, Math.min(W,H)/1280);
+      const gs=Math.max(1, Math.min(6, Math.min(W,H)/1100)); // coarser tooth on big canvases
       try { if(pat.setTransform) pat.setTransform(new DOMMatrix([gs,0,0,gs,0,0])); } catch(_){}
       ctx.save();
-      ctx.globalAlpha = grain/100*0.13;          // visible on white AND black
+      ctx.globalAlpha = grain/100*0.17;          // visible on white AND black
       ctx.fillStyle=pat; ctx.fillRect(0,0,W,H);
       ctx.restore();
     }
