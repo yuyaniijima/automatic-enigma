@@ -273,14 +273,17 @@
     const ctx=exportCanvas.getContext('2d');
     ctx.fillStyle=color; ctx.fillRect(0,0,W,H);
 
-    // grain on the flat colour BEFORE the photo -> stays on the border only
+    // grain on the flat colour BEFORE the photo -> stays on the border only.
+    // Manual tiled drawImage — NOT createPattern/setTransform, which silently
+    // paints nothing on iOS Safari (that was the "does nothing" bug).
     if(grain>0){
-      const pat=ctx.createPattern(noise(),'repeat');
-      const gs=Math.max(1, Math.min(6, Math.min(W,H)/1100)); // coarser tooth on big canvases
-      try { if(pat.setTransform) pat.setTransform(new DOMMatrix([gs,0,0,gs,0,0])); } catch(_){}
+      const tile=noise();
+      const step=Math.round(512*Math.max(1, Math.min(6, Math.min(W,H)/1100)));
       ctx.save();
-      ctx.globalAlpha = grain/100*0.17;          // visible on white AND black
-      ctx.fillStyle=pat; ctx.fillRect(0,0,W,H);
+      ctx.globalAlpha = grain/100*0.22;          // clearly visible on white AND black
+      for(let yy=0; yy<H; yy+=step)
+        for(let xx=0; xx<W; xx+=step)
+          ctx.drawImage(tile, xx, yy, step, step);
       ctx.restore();
     }
 
